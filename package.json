@@ -18,6 +18,7 @@
   "homepage": "https://github.com/Caleb-l0/Render_Test_Repo#readme",
   "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "express": "^5.1.0",
     "pg": "^8.16.3"
   },
