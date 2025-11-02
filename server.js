@@ -1,15 +1,53 @@
 const express = require('express');
+const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+
 const app = express();
 app.use(express.urlencoded({ extended: true }));
-app.get('/', (req, res) => res.sendFile(__dirname+'/index.html'));
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  // fake logic: accept if username = “user” & password = “pass”
-  if(username==='user' && password==='pass'){
-    res.send('Login successful!');
-  } else {
-    res.send('Login failed. <a href="/">Back</a>');
-  }
+
+// Connect to your Render Postgres database
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // set in Render Environment Variables
+  ssl: { rejectUnauthorized: false }
 });
+
+// Create users table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL
+  )
+`).catch(console.error);
+
+// Insert test user if it doesn't exist
+(async () => {
+  const hashedPassword = await bcrypt.hash('pass', 10);
+  await pool.query(
+    `INSERT INTO users (username, password_hash)
+     SELECT $1, $2 WHERE NOT EXISTS (
+       SELECT 1 FROM users WHERE username = $1
+     )`,
+    ['user', hashedPassword]
+  );
+})();
+
+// Serve login page
+app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
+
+// Handle login
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  const result = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
+
+  if (result.rows.length === 0) return res.send('Login failed. <a href="/">Back</a>');
+
+  const user = result.rows[0];
+  const match = await bcrypt.compare(password, user.password_hash);
+
+  if (match) res.send('Login successful!');
+  else res.send('Login failed. <a href="/">Back</a>');
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log(`Listening on ${PORT}`));
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
