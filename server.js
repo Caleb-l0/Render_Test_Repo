@@ -33,7 +33,7 @@ pool.query(`
 })();
 
 // Serve login page
-app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
+app.get('/', (req, res) => res.sendFile(__dirname + '/login.html'));
 
 // Handle login
 app.post('/login', async (req, res) => {
