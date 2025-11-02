@@ -5,9 +5,9 @@ const bcrypt = require('bcrypt');
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to your Render Postgres database
+// Connect to Render Postgres database
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // set in Render Environment Variables
+  connectionString: process.env.DATABASE_URL, // must be set in Render Environment Variables
   ssl: { rejectUnauthorized: false }
 });
 
@@ -20,7 +20,7 @@ pool.query(`
   )
 `).catch(console.error);
 
-// Insert test user if it doesn't exist
+// Insert test user if not exists
 (async () => {
   const hashedPassword = await bcrypt.hash('pass', 10);
   await pool.query(
@@ -38,15 +38,20 @@ app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
 // Handle login
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const result = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
 
-  if (result.rows.length === 0) return res.send('Login failed. <a href="/">Back</a>');
+    if (result.rows.length === 0) return res.send('Login failed. <a href="/">Back</a>');
 
-  const user = result.rows[0];
-  const match = await bcrypt.compare(password, user.password_hash);
+    const user = result.rows[0];
+    const match = await bcrypt.compare(password, user.password_hash);
 
-  if (match) res.send('Login successful!');
-  else res.send('Login failed. <a href="/">Back</a>');
+    if (match) res.send('Login successful!');
+    else res.send('Login failed. <a href="/">Back</a>');
+  } catch (err) {
+    console.error(err);
+    res.send('An error occurred. <a href="/">Back</a>');
+  }
 });
 
 const PORT = process.env.PORT || 3000;
